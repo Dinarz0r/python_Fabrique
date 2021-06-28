@@ -1,17 +1,18 @@
 from datetime import datetime
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.generics import GenericAPIView, get_object_or_404
+from rest_framework.generics import GenericAPIView
 from rest_framework.mixins import UpdateModelMixin, RetrieveModelMixin, DestroyModelMixin, ListModelMixin, \
     CreateModelMixin
 from rest_framework import permissions
 from rest_framework.response import Response
 
-from app_questionnaire.models import PollModel, QuestionModel, AnswerModel
-from app_questionnaire.serializers import PollSerializer, QuestionSerializer, AnswerSerializer
+from app_questionnaire.models import PollModel, QuestionModel
+from app_questionnaire.serializers import PollSerializer, QuestionSerializer
 
 
 class PollListView(ListModelMixin, CreateModelMixin, GenericAPIView):
-    """Представление для получения списка акция и создания новой акции"""
+    """Представление для получения списка опросов и вопросов в ней
+    а так же не для авторизованного пользователя он будет выводить только действующие опросы"""
     serializer_class = PollSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
@@ -71,28 +72,24 @@ class QuestionList(UpdateModelMixin, RetrieveModelMixin, DestroyModelMixin, Gene
         #     print('У вас нет прав')
         #     raise PermissionDenied(detail='У вас нет прав', code=403)
         return self.destroy(request, *args, **kwargs)
-#
-#
-# class AnswerCreate(APIView):
-#     permission_classes = [permissions.AllowAny]
-#     serializer_class = AnswerSerializer
-#
-#     def post(self, request, pk, question_pk):
-#         answered_by = request.data.get("answered_by")
-#         answer_text = request.data.get("answer_text")
-#         data = {'question': question_pk, 'poll': pk, 'answered_by': answered_by, 'answer_text': answer_text}
-#         serializer = AnswerSerializer(data=data)
-#         if serializer.is_valid():
-#             answer = serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         else:
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#
-#
-# class AnswerList(generics.ListAPIView):
-#     permission_classes = [permissions.AllowAny]
-#     serializer_class = AnswerSerializer
-#
-#     def get_queryset(self):
-#         queryset = AnswerModel.objects.filter(answered_by=self.kwargs["pk"])
-#         return queryset
+
+
+class QuestionListView(ListModelMixin, CreateModelMixin, GenericAPIView):
+    """Представление для получения списка вопросов в ней
+    а так же не для авторизованного пользователя он будет выводить только действующие опросы"""
+    serializer_class = QuestionSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        if self.request.successful_authenticator:
+            queryset = QuestionModel.objects.all()
+        else:
+            queryset = QuestionModel.objects.filter(stop_date__gt=datetime.today())
+        return queryset
+
+    def get(self, request):
+        """тут может добавить фильтр для вывода списка вопрос напрмер по дате старт энд опроса"""
+        return self.list(request)
+
+    def post(self, request):
+        return self.create(request)
